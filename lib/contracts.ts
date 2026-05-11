@@ -12,9 +12,7 @@ export type ToolStatus = "waiting" | "running" | "complete" | "review" | "failed
 
 export type ToolCallName =
   | "transcribe_voice"
-  | "generate_image"
-  | "analyze_image"
-  | "extract_components"
+  | "apply_patch"
   | "generate_ui_schema"
   | "generate_motion_plan";
 
@@ -61,6 +59,12 @@ export type DemoState = {
   motion: MotionPlan;
 };
 
+export type TurnResponse = {
+  state: DemoState;
+  source: "mock" | "openai";
+  summary: string;
+};
+
 export function isUIStructure(value: unknown): value is UIStructure {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<UIStructure>;
@@ -86,5 +90,17 @@ export function isMotionPlan(value: unknown): value is MotionPlan {
         typeof track.delayMs === "number" &&
         typeof track.easing === "string",
     )
+  );
+}
+
+export function isVoiceIntent(value: unknown): value is VoiceIntent {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<VoiceIntent>;
+  return (
+    typeof candidate.transcript === "string" &&
+    typeof candidate.styleIntent === "string" &&
+    typeof candidate.productIntent === "string" &&
+    Array.isArray(candidate.constraints) &&
+    candidate.constraints.every((constraint) => typeof constraint === "string")
   );
 }

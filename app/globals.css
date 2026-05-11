@@ -274,7 +274,28 @@ a {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  margin: 14px 0 18px;
+  margin: 10px 0 18px;
+}
+
+.run-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  margin-top: 10px;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.run-status span {
+  min-width: 52px;
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+}
+
+.run-status p {
+  margin: 0;
 }
 
 .trace-item {

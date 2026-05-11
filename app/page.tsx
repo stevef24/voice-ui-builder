@@ -14,12 +14,11 @@ import {
   Square,
   Sun,
 } from "lucide-react";
-import type { DemoState, PipelinePhase, ToolCallName, ToolStatus } from "@/lib/contracts";
+import type { DemoState, PipelinePhase, ToolCallName, ToolStatus, TurnResponse } from "@/lib/contracts";
 import { defaultTranscript, mockDemoState, phaseToolStatus, toolOrder } from "@/lib/mock-data";
 
 const pipeline: PipelinePhase[] = [
   "transcribing",
-  "generating_image",
   "extracting_ui",
   "planning_motion",
   "preview_ready",
@@ -28,7 +27,7 @@ const pipeline: PipelinePhase[] = [
 const primaryTrace: Array<{ label: string; tool: ToolCallName }> = [
   { label: "Transcript", tool: "transcribe_voice" },
   { label: "Schema", tool: "generate_ui_schema" },
-  { label: "Patch", tool: "extract_components" },
+  { label: "Patch", tool: "apply_patch" },
   { label: "Motion", tool: "generate_motion_plan" },
 ];
 
@@ -39,27 +38,45 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [source, setSource] = useState<"mock" | "openai">("mock");
+  const [summary, setSummary] = useState("Ready to run with mock data, or add an API key for OpenAI mode.");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
   const statuses = useMemo(() => phaseToolStatus[phase] ?? phaseToolStatus.preview_ready, [phase]);
 
-  async function runMockPipeline() {
-    for (const nextPhase of pipeline) {
-      setPhase(nextPhase);
-      await wait(nextPhase === "preview_ready" ? 180 : 620);
+  async function runPipeline(transcript = prompt) {
+    try {
+      setSummary("Generating a validated UI spec...");
+      for (const nextPhase of pipeline.slice(0, -1)) {
+        setPhase(nextPhase);
+        await wait(220);
+      }
+
+      const response = await fetch("/api/turn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript }),
+      });
+      const result = (await response.json()) as Partial<TurnResponse> & { error?: string };
+
+      if (!response.ok || !result.state) {
+        throw new Error(result.error ?? "Could not generate the UI turn.");
+      }
+
+      setDemo(result.state);
+      setSource(result.source ?? "mock");
+      setSummary(result.summary ?? "Generated a UI spec.");
+      setPhase("preview_ready");
+    } catch (error) {
+      setPhase("idle");
+      setSummary(error instanceof Error ? error.message : "Something went wrong.");
     }
-    setDemo((current) => ({
-      ...current,
-      phase: "preview_ready",
-      intent: { ...current.intent, transcript: prompt },
-      artifact: { ...current.artifact, prompt },
-    }));
   }
 
   async function startRecording() {
     if (!navigator.mediaDevices?.getUserMedia) {
-      await runMockPipeline();
+      await runPipeline();
       return;
     }
 
@@ -78,15 +95,15 @@ export default function Home() {
         setIsRecording(false);
         setPhase("transcribing");
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        await transcribeAudio(blob);
-        await runMockPipeline();
+        const transcript = await transcribeAudio(blob);
+        await runPipeline(transcript);
       };
 
       recorder.start();
       setIsRecording(true);
       setPhase("listening");
     } catch {
-      await runMockPipeline();
+      await runPipeline();
     }
   }
 
@@ -104,10 +121,14 @@ export default function Home() {
         body: form,
       });
       const result = (await response.json()) as { transcript?: string };
-      if (result.transcript) setPrompt(result.transcript);
+      if (result.transcript) {
+        setPrompt(result.transcript);
+        return result.transcript;
+      }
     } catch {
       setPrompt(defaultTranscript);
     }
+    return defaultTranscript;
   }
 
   function revise() {
@@ -162,16 +183,21 @@ export default function Home() {
               <RefreshCcw size={14} />
               Revise
             </button>
-            <button className="primary-button" onClick={runMockPipeline} type="button">
+            <button className="primary-button" onClick={() => runPipeline()} type="button">
               Run
             </button>
           </div>
         </section>
 
+        <div className="run-status">
+          <span>{source}</span>
+          <p>{summary}</p>
+        </div>
+
         <PipelineTrace statuses={statuses} />
 
         <section className="builder-grid" aria-label="Generated UI preview and structure">
-          <PreviewCard phase={phase} />
+          <PreviewCard demo={demo} phase={phase} />
           <StructurePanel demo={demo} statuses={statuses} />
         </section>
 
@@ -205,7 +231,10 @@ function PipelineTrace({ statuses }: { statuses: Record<ToolCallName, ToolStatus
   );
 }
 
-function PreviewCard({ phase }: { phase: PipelinePhase }) {
+function PreviewCard({ demo, phase }: { demo: DemoState; phase: PipelinePhase }) {
+  const copy = demo.structure.copy;
+  const components = demo.structure.components;
+
   return (
     <article className="preview-card">
       <div className="section-heading">
@@ -220,17 +249,17 @@ function PreviewCard({ phase }: { phase: PipelinePhase }) {
         <div className="rendered-header">
           <div>
             <span className="muted-label">Generated page</span>
-            <h3>Studio booking board</h3>
+            <h3>{demo.artifact.title}</h3>
           </div>
           <button className="small-button" type="button">
-            Add task
+            {copy[3] ?? "Export"}
           </button>
         </div>
 
         <div className="task-list">
-          <TaskRow status="complete" title="Capture voice request" meta="transcribe_voice" />
-          <TaskRow status="complete" title="Create layout structure" meta="generate_ui_schema" />
-          <TaskRow status={phase === "preview_ready" ? "complete" : "running"} title="Apply motion plan" meta="motion_ready" />
+          <TaskRow status="complete" title={copy[0] ?? "Capture voice request"} meta="transcribe_voice" />
+          <TaskRow status="complete" title={components[2] ?? "Create layout structure"} meta="generate_ui_schema" />
+          <TaskRow status={phase === "preview_ready" ? "complete" : "running"} title={copy[2] ?? "Apply motion plan"} meta="motion_ready" />
         </div>
 
         <div className="approval-note">

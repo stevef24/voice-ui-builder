@@ -1,7 +1,12 @@
 import { mockIntent, mockMotion, mockStructure } from "@/lib/mock-data";
 
 export function shouldUseMock() {
-  return process.env.VOICE_TO_MOTION_MOCK_MODE !== "false" || !process.env.OPENAI_API_KEY;
+  const mockMode = process.env.VOICE_UI_BUILDER_MOCK_MODE;
+
+  if (mockMode === "true") return true;
+  if (mockMode === "false") return false;
+
+  return !process.env.OPENAI_API_KEY;
 }
 
 export function mockTranscription() {
@@ -15,8 +20,8 @@ export function mockImageArtifact(prompt: string) {
   return {
     artifact: {
       id: "mock-generated-artifact",
-      title: "Premium concierge booking flow",
-      description: "A generated dark interface direction for a calm concierge booking experience.",
+      title: "Minimal studio task board",
+      description: "A generated light interface direction for a calm Notion-like builder workspace.",
       prompt,
       imageUrl: null,
     },

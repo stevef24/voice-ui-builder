@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_REASONING_MODEL ?? "gpt-5.5",
+      model: process.env.OPENAI_TEXT_MODEL ?? "gpt-4o-mini",
       reasoning: { effort: "low" },
       input: `Revise this UI generation intent without touching code yet. Current transcript: ${body.transcript ?? ""}. Requested revision: ${revision}. Return a concise JSON object with updated transcript, styleIntent, and affectedLayers.`,
     }),

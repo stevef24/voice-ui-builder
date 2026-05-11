@@ -22,10 +22,13 @@ The goal is not raw React generation. The goal is a constrained builder loop whe
 
 ```bash
 pnpm install
+cp .env.example .env.local
 pnpm dev
 ```
 
 Open `http://localhost:3000`.
+
+The app runs without an API key in deterministic mock mode.
 
 ## Scripts
 
@@ -36,19 +39,27 @@ pnpm build
 pnpm check
 ```
 
-## Environment
+## OpenAI Testing
 
-Mock mode is the default path for the public demo.
+To test with OpenAI, add only this required value:
 
 ```env
-VOICE_TO_MOTION_MOCK_MODE=true
 OPENAI_API_KEY=
-OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe
-OPENAI_REASONING_MODEL=gpt-5.5
-OPENAI_IMAGE_MODEL=gpt-image-2
 ```
 
+If `OPENAI_API_KEY` is present, the Run button uses `/api/turn` in OpenAI mode automatically.
+If no key is present, the same route falls back to mock mode.
+
 Keep `OPENAI_API_KEY` server-only. Do not expose it through `NEXT_PUBLIC_` variables.
+
+Optional overrides:
+
+```env
+OPENAI_TEXT_MODEL=gpt-4o-mini
+OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe
+OPENAI_IMAGE_MODEL=gpt-image-2
+VOICE_UI_BUILDER_MOCK_MODE=true
+```
 
 ## Useful Docs
 

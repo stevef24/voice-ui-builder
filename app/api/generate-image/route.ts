@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     artifact: {
       id: "openai-generated-artifact",
-      title: "Generated image direction",
+      title: "Generated visual direction",
       description: "Image direction generated from the voice prompt.",
       prompt,
       imageUrl: image?.url ?? (image?.b64_json ? `data:image/png;base64,${image.b64_json}` : null),

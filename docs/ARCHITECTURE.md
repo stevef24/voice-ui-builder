@@ -1,18 +1,18 @@
-# Voice To Motion UI Architecture
+# Voice UI Builder Architecture
 
 ## Purpose
 
-Voice To Motion UI is a LinkedIn-ready proof-of-possibility demo. It shows how a spoken product idea can move through a controlled AI pipeline:
+Voice UI Builder is a LinkedIn-ready proof-of-possibility demo. It shows how a spoken product idea can move through a controlled AI pipeline:
 
 1. Voice prompt is captured and transcribed.
 2. Intent is normalized into product, style, and constraints.
-3. An image direction is generated.
-4. The image is analyzed into UI structure and design tokens.
-5. A motion plan is generated.
+3. A structured JSON UI spec is generated.
+4. The spec is validated into UI structure and design tokens.
+5. A motion preset plan is generated.
 6. The preview renders from state.
-7. A follow-up voice revision updates the smallest affected layer.
+7. A follow-up voice revision patches the smallest affected layer.
 
-The first version is mock-first so we can make the demo visually strong before spending realtime/image API budget.
+The first version is mock-first without an API key, then switches to OpenAI mode when `OPENAI_API_KEY` is present.
 
 ## Architecture Diagram
 
@@ -27,12 +27,9 @@ The diagram can be edited in Excalidraw. Keep local editor tooling out of the pu
 ```mermaid
 flowchart LR
   User["User speaks or types"] --> Client["Next.js client state machine"]
-  Client --> Transcribe["/api/transcribe"]
-  Transcribe --> Intent["VoiceIntent"]
-  Intent --> Image["/api/generate-image"]
-  Image --> Artifact["GeneratedArtifact"]
-  Artifact --> Extract["/api/extract-ui"]
-  Extract --> Structure["UIStructure"]
+  Client --> Turn["/api/turn"]
+  Turn --> Intent["VoiceIntent"]
+  Intent --> Structure["UIStructure"]
   Structure --> Motion["/api/generate-motion"]
   Motion --> Plan["MotionPlan"]
   Plan --> Preview["Rendered animated preview"]
@@ -52,11 +49,11 @@ Responsibilities:
 
 - Owns the visible demo state and phase transitions.
 - Captures voice through `MediaRecorder`.
-- Sends audio to `/api/transcribe`.
-- Plays a mock pipeline through these phases:
+- Sends typed prompts to `/api/turn`.
+- Sends recorded audio to `/api/transcribe` before the turn when mic capture is used.
+- Plays a pipeline through these phases:
   - `listening`
   - `transcribing`
-  - `generating_image`
   - `extracting_ui`
   - `planning_motion`
   - `preview_ready`
@@ -77,13 +74,12 @@ Server routes live under `app/api`.
 
 | Route | Job | Current Mode |
 |---|---|---|
+| `/api/turn` | Transcript to full demo state | Mock without key, OpenAI when key is present |
 | `/api/transcribe` | Audio to transcript | Mock by default, OpenAI transcription when enabled |
-| `/api/generate-image` | Prompt to visual direction | Mock by default, image API when enabled |
-| `/api/extract-ui` | Image and prompt to UI JSON | Mock by default, Responses vision/structured output when enabled |
+| `/api/extract-ui` | Prompt to UI JSON | Optional low-level route |
 | `/api/generate-motion` | UI structure to timeline JSON | Mock by default, Responses structured output when enabled |
 | `/api/revise` | Voice/text revision against current state | Mock by default, model-assisted revision when enabled |
-
-Near-term enhancement: add `/api/turn` as the single voice-turn router. That route should decide whether a new transcript is a fresh generation, a revision, a retry, or an export request.
+| `/api/generate-image` | Prompt to visual direction | Optional route, not required for the default app run |
 
 ### Contract Layer
 
@@ -107,7 +103,7 @@ The useful pattern from AutoPreso is not the whiteboard itself. It is the live l
 audio input -> transcript turn -> agent decision -> typed tool call -> visual state mutation
 ```
 
-For Voice To Motion UI, that becomes:
+For Voice UI Builder, that becomes:
 
 ```txt
 spoken idea -> transcript turn -> layer decision -> typed pipeline tool -> rendered artifact state
@@ -121,7 +117,6 @@ Recommended implementation:
 4. Return a typed action:
    - `start_generation`
    - `revise_intent`
-   - `regenerate_image`
    - `regenerate_structure`
    - `regenerate_motion`
    - `export_schema`
@@ -143,10 +138,10 @@ The app should keep provider choice explicit.
 Environment rule:
 
 ```txt
-VOICE_TO_MOTION_MOCK_MODE=true
+OPENAI_API_KEY=
 ```
 
-should remain the default until the UI and recording story are polished.
+No key means mock mode. Adding the key is enough to test OpenAI mode.
 
 ## Diagram Plan
 
@@ -171,8 +166,8 @@ Keep the editable `.excalidraw` source in `diagrams/`. If contributors add a ren
 ### Stage 3: Wire Real Generation Selectively
 
 - Keep `/api/transcribe` inexpensive by using recorded audio and transcription.
-- Use image generation only for deliberate runs.
-- Use structured Responses routes for UI extraction and motion planning.
+- Use image generation only for deliberate future runs.
+- Use `/api/turn` for structured Responses generation.
 - Cache generated artifacts locally during demos.
 
 ### Stage 4: Make It A Builder Demo
@@ -188,12 +183,12 @@ Keep the editable `.excalidraw` source in `diagrams/`. If contributors add a ren
 ## Demo Walkthrough
 
 1. Open the app at `http://localhost:3000`.
-2. Say: "Make a calm concierge booking flow for a premium studio."
+2. Say or type: "Create a minimal task board for a small studio."
 3. Transcript locks and the activity trace starts.
-4. Image direction appears in the central artifact.
-5. Structure drawer populates with components and tokens.
+4. JSON structure appears in the central artifact.
+5. Structure panel populates with components and tokens.
 6. Timeline activates and preview motion plays.
-7. Say: "Make it more premium and slower."
+7. Say: "Make it calmer and slower."
 8. Only the affected style/motion layers update.
 
 ## Design Guardrails
